@@ -46,8 +46,8 @@ django-task-manager-api/
 
 ## 📝 Roadmap
 
-- [ ] Setup inicial del proyecto  
-- [ ] Modelos y migraciones  
+- [✅] Setup inicial del proyecto  
+- [✅] Modelos y migraciones  
 - [ ] API CRUD básica  
 - [ ] Autenticación JWT  
 - [ ] Sistema de permisos  
@@ -58,7 +58,7 @@ django-task-manager-api/
 
 ## 👨‍💻 Autor
 
-[Tu Nombre] – Proyecto Portfolio
+Andres Felipe Celi Jimenez – Proyecto Portfolio
 
 ## 📄 Licencia
 
