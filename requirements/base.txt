@@ -1,9 +1,35 @@
+# Django and REST Framework
 Django==5.0.1
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
+
+# API Documentation
 drf-yasg==1.21.7
+
+# Database
 mysqlclient==2.2.1
+
+# Configuration
 python-decouple==3.8
+
+# CORS
 django-cors-headers==4.3.1
+
+# Filtering
 django-filter==24.1
+drf-nested-routers==0.93.4
+
+# Images
 Pillow==10.2.0
+
+# Redis and Caching
+redis==5.0.1
+django-redis==5.4.0
+
+# Celery
+celery==5.3.4
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+
+# Security
+PyJWT==2.8.0

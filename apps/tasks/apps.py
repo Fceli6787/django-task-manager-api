@@ -1,6 +1,14 @@
+"""
+Tasks app configuration.
+"""
 from django.apps import AppConfig
 
 
 class TasksConfig(AppConfig):
-    default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.tasks"
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.tasks'
+    verbose_name = 'Tasks'
+
+    def ready(self):
+        """Import signals when app is ready."""
+        import apps.tasks.signals  # noqa
