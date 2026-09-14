@@ -1,147 +1,123 @@
-# Django Task Manager — API + Web Fullstack
+# 🗂️ Django Task Manager
 
-Sistema de gestión de tareas con autenticación JWT, MySQL y documentación Swagger,
-más interfaz web Django (sesiones) con design system Atlas en `static/css/app.css`.
+> Sistema fullstack de gestión de tareas con API REST (JWT), interfaz web con Django Templates + HTMX, MySQL, Redis y Celery. Diseñado como proyecto portfolio con foco en buenas prácticas.
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![Django](https://img.shields.io/badge/Django-5.0-green.svg)
-![DRF](https://img.shields.io/badge/DRF-3.14-red.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-5.0-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![DRF](https://img.shields.io/badge/DRF-3.14-A30000?logo=django&logoColor=white)](https://www.django-rest-framework.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Redis](https://img.shields.io/badge/Redis-7.2-DC382D?logo=redis&logoColor=white)](https://redis.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Tests](https://img.shields.io/badge/tests-pytest-blueviolet)](tests/)
 
-## 🚀 Características Principales
+<!-- 📸 REEMPLAZA ESTO CON TUS CAPTURAS REALES -->
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard web" width="800">
+</p>
 
-- ✅ **CRUD completo de tareas** con soft-delete (API + web `/tasks/`)
-- 🔐 **Autenticación JWT** con refresh tokens (API) + sesiones Django (web `/login/`)
-- 👥 **Sistema de roles y permisos** (Admin, Manager, User)
-- 📝 **Colaboración**: asignación de tareas, comentarios y @menciones
-- 🏷️ **Organización**: categorías, tags, prioridades y fechas límite
-- 📊 **Dashboard web `/`** con analytics y reportes (mismos datos que `/api/v1/analytics/dashboard/`)
-- 📚 **Documentación interactiva** con Swagger/OpenAPI
-- 🎨 **Frontend Django Templates + HTMX + Atlas CSS** (`templates/`, `static/css/app.css`)
-- ⚡ **Optimización de queries** y caché con Redis (opcional local con `USE_REDIS=False`)
-- 🔄 **Tareas recurrentes** con Celery
-- 📧 **Notificaciones** por email y push (flags + web `/notifications/`)
+<p align="center">
+  <a href="#-quickstart">Quickstart</a> ·
+  <a href="#-documentación">Documentación</a> ·
+  <a href="#-api-rest">API</a> ·
+  <a href="#-testing">Testing</a> ·
+  <a href="#-roadmap">Roadmap</a>
+</p>
+
+---
+
+## ✨ Características
+
+- ✅ **CRUD completo de tareas** con soft-delete y papelera
+- 🔐 **Doble autenticación**: JWT (API) + sesiones Django (web)
+- 👥 **Roles y permisos**: Admin, Manager, User
+- 📝 **Colaboración**: asignación, comentarios y @menciones
+- 🏷️ **Organización**: categorías, tags, prioridades y deadlines
+- 📊 **Dashboard analítico** con métricas en tiempo real
+- 📚 **Swagger / ReDoc** autogenerados con drf-yasg
+- 🎨 **Frontend** con Django Templates + HTMX + Atlas Design System
+- ⚡ **Caché Redis** (con fallback LocMem para desarrollo local)
+- 🔄 **Tareas recurrentes** con Celery Beat
+- 📧 **Notificaciones** por email y push
+
+---
 
 ## 🛠️ Stack Tecnológico
 
-| Categoría | Tecnología |
-|-----------|------------|
-| Backend | Django 5.0, Django REST Framework 3.14 |
-| Frontend web | Django Templates + HTMX + `static/css/app.css` (Atlas Design System) |
-| Base de Datos | MySQL 8.0 (`localhost:3306` — XAMPP / WAMP / Workbench / MySQL puro) |
-| Autenticación | djangorestframework-simplejwt (API) + sesiones Django (web) |
-| Documentación | drf-yasg (Swagger/OpenAPI) |
-| Caché | Redis 7.2 (prod) / LocMem + `USE_REDIS=False` (local sin Redis) |
+| Capa | Tecnología |
+|------|-----------|
+| Backend | Django 5.0 · Django REST Framework 3.14 |
+| Frontend | Django Templates · HTMX · Atlas CSS |
+| Base de datos | MySQL 8.0 (`localhost:3306`) |
+| Autenticación | SimpleJWT (API) · Sesiones Django (web) |
+| Documentación | drf-yasg (Swagger / OpenAPI) |
+| Caché | Redis 7.2 (prod) · LocMem (dev) |
 | Task Queue | Celery + Redis |
-| Testing | pytest, pytest-django |
+| Testing | pytest · pytest-django |
+| Entorno | Python 3.11+ |
 
-## 📁 Estructura del Proyecto
+---
 
-```
-django-task-manager-api/
-├── config/                 # Configuración del proyecto
-│   ├── settings.py         # Configuración principal
-│   ├── urls.py             # URLs raíz
-│   ├── celery.py           # Configuración de Celery
-│   └── wsgi.py             # WSGI application
-├── apps/
-│   ├── tasks/              # App principal de tareas
-│   │   ├── models.py       # Task, Category, Tag, Comment
-│   │   ├── views.py        # ViewSets y APIs (JWT)
-│   │   ├── views_web.py    # Vistas HTML (sesión): lista/detalle/CRUD
-│   │   ├── serializers.py  # Serializers
-│   │   ├── filters.py      # Filtros de búsqueda
-│   │   └── tasks.py        # Celery tasks
-│   ├── users/              # Gestión de usuarios
-│   │   ├── models.py       # User, UserActivity
-│   │   ├── views.py        # Auth y profile APIs
-│   │   ├── views_web.py    # Registro web
-│   │   └── serializers.py  # User serializers
-│   ├── notifications/      # Sistema de notificaciones
-│   │   ├── models.py       # Notification, Preferences
-│   │   ├── views_web.py    # Lista equipo + badge MySQL
-│   │   └── tasks.py        # Email/push tasks
-│   └── analytics/          # Reportes y estadísticas
-│       ├── models.py       # Stats models
-│       ├── views.py        # Dashboard APIs
-│       └── views_web.py    # Dashboard HTML + `get_db_status()` 3306
-├── templates/              # Frontend Opción A
-│   ├── base.html
-│   ├── registration/login.html, register.html
-│   └── web/dashboard.html, task_list.html, task_detail.html, categories.html, notifications.html, team.html
-├── static/css/app.css      # Atlas Design System (tokens, layout, cards, tasks, auth)
-├── core/                   # Utilidades compartidas
-│   ├── models.py           # Base models (SoftDelete)
-│   ├── permissions.py      # Custom permissions
-│   ├── pagination.py       # Pagination classes
-│   └── exceptions.py       # Custom exceptions
-├── tests/                  # Tests organizados por app
-├── docs/                   # Documentación adicional
-└── requirements/           # Dependencias por entorno
-```
+## ⚡ Quickstart
 
-## 🚀 Instalación
+> Para tener el proyecto corriendo en local en menos de 2 minutos (sin Redis, sin Celery).
 
-### Requisitos Previos
-
-- Python 3.11+ (probado 3.12)
-- MySQL 8.0+ en `localhost:3306` (vale XAMPP, WAMP, Workbench o MySQL puro)
-- Redis 7.2+ solo prod/Celery (local: `USE_REDIS=False`, sin instalar Redis)
-
-### Pasos de Instalación
-
-1. **Clonar el repositorio**
 ```bash
+# 1. Clonar
 git clone https://github.com/yourusername/django-task-manager-api.git
 cd django-task-manager-api
-```
 
-2. **Crear entorno virtual**
-```bash
+# 2. Entorno virtual
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# o
-venv\Scripts\activate     # Windows
-```
+source venv/bin/activate          # Linux / macOS
+# venv\Scripts\activate           # Windows
 
-3. **Instalar dependencias**
-```bash
+# 3. Dependencias
 pip install setuptools==68.0.0
 pip install -r requirements/dev.txt
-# Nota: django-celery-beat==2.6.0 (2.5.0 exige Django<5.0 y rompe pip)
-```
 
-4. **Configurar variables de entorno**
-```bash
-Copy-Item .env.example .env  # Windows / cp .env.example .env
-# MySQL local: DB_USER=root DB_PASSWORD= DB_HOST=localhost DB_PORT=3306
-# (XAMPP/WAMP: root sin clave por defecto / Workbench/MySQL puro: tu clave)
-# Local sin Redis: USE_REDIS=False
-# Generar: python -c "from django.core.management.utils import get_random_secret_key; print(...)"
-```
+# 4. Variables de entorno
+cp .env.example .env              # Linux / macOS
+# Copy-Item .env.example .env     # Windows
 
-5. **Crear base de datos MySQL**
-```sql
-CREATE DATABASE task_manager_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+# 5. Base de datos (MySQL)
+mysql -u root -e "CREATE DATABASE task_manager_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-6. **Ejecutar migraciones**
-```bash
-python manage.py makemigrations users tasks notifications analytics
+# 6. Migraciones y superusuario
 python manage.py migrate
-```
-
-7. **Crear superusuario**
-```bash
 python manage.py createsuperuser
-```
 
-8. **Iniciar el servidor**
-```bash
+# 7. Arrancar
 python manage.py runserver
 ```
 
-### Iniciar Celery (para tareas en segundo plano)
+Abre 👉 http://localhost:8000/login/
+
+<details>
+<summary><b>⚙️ Configuración detallada (.env, MySQL, Redis, Celery)</b></summary>
+
+### Variables de entorno (`.env`)
+
+| Variable | Valor por defecto | Descripción |
+|----------|-------------------|-------------|
+| `SECRET_KEY` | — | Genera con `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
+| `DEBUG` | `True` | Modo debug |
+| `DB_NAME` | `task_manager_db` | Nombre de la base de datos |
+| `DB_USER` | `root` | Usuario MySQL |
+| `DB_PASSWORD` | _(vacío)_ | Contraseña MySQL |
+| `DB_HOST` | `localhost` | Host MySQL |
+| `DB_PORT` | `3306` | Puerto MySQL |
+| `USE_REDIS` | `False` | `True` para usar Redis real |
+| `REDIS_URL` | `redis://localhost:6379/0` | URL de Redis |
+| `EMAIL_HOST` | `smtp.gmail.com` | Servidor SMTP |
+
+### MySQL
+
+Compatible con **XAMPP**, **WAMP**, **Workbench** o **MySQL puro**:
+- XAMPP/WAMP: `root` sin contraseña por defecto.
+- MySQL puro / Workbench: usa tus credenciales.
+
+### Redis + Celery (opcional en local)
 
 ```bash
 # Worker
@@ -151,137 +127,243 @@ celery -A config worker -l info
 celery -A config beat -l info
 ```
 
-## 📚 Documentación y Web
+Si no quieres instalar Redis en local, deja `USE_REDIS=False` y usa Celery en modo eager.
 
-- **Web (sesión)**: http://localhost:8000/login/ → `/` dashboard (badge `MySQL localhost:3306 OK`), `/tasks/`, `/categories/`, `/notifications/`, `/team/`
-- **Swagger UI**: http://localhost:8000/swagger/
-- **ReDoc**: http://localhost:8000/redoc/
-- **Admin**: http://localhost:8000/admin/
+### Nota sobre dependencias
 
-## 🔑 Autenticación
+`django-celery-beat==2.6.0` es **obligatorio** en Django 5.0 (la 2.5.0 exige Django<5.0 y rompe pip).
 
-### Registro de Usuario
-```bash
-POST /api/v1/auth/register/
-{
-    "email": "user@example.com",
-    "password": "SecurePass123!",
-    "password_confirm": "SecurePass123!",
-    "first_name": "John",
-    "last_name": "Doe"
-}
+</details>
+
+---
+
+## 📁 Estructura del Proyecto
+
+```
+django-task-manager-api/
+├── config/                     # Configuración del proyecto
+│   ├── settings.py
+│   ├── urls.py
+│   ├── celery.py
+│   └── wsgi.py
+├── apps/
+│   ├── tasks/                  # App principal
+│   │   ├── models.py           # Task, Category, Tag, Comment
+│   │   ├── views.py            # ViewSets (JWT)
+│   │   ├── views_web.py        # Vistas HTML (sesión)
+│   │   ├── serializers.py
+│   │   ├── filters.py
+│   │   └── tasks.py            # Celery tasks
+│   ├── users/                  # User, UserActivity
+│   ├── notifications/          # Notification, Preferences
+│   └── analytics/              # Stats + Dashboard
+├── templates/                  # base.html + registration/ + web/
+├── static/css/app.css          # Atlas Design System
+├── core/                       # SoftDelete, permisos, paginación
+├── tests/                      # Tests por app
+├── docs/                       # Documentación y screenshots
+└── requirements/               # dev.txt / prod.txt
 ```
 
-### Login (Obtener Token)
-```bash
-POST /api/v1/auth/login/
-{
-    "email": "user@example.com",
-    "password": "SecurePass123!"
-}
+---
 
-# Response:
-{
-    "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "full_name": "John Doe",
-        "role": "user"
-    }
-}
-```
+## 📚 Documentación
 
-### Usar Token
-```bash
-curl -H "Authorization: Bearer <access_token>" http://localhost:8000/api/v1/tasks/
-```
+| Recurso | URL | Auth |
+|---------|-----|------|
+| 🖥️ Dashboard web | [`/`](http://localhost:8000/) | Sesión |
+| 📝 Tareas | [`/tasks/`](http://localhost:8000/tasks/) | Sesión |
+| 🏷️ Categorías | [`/categories/`](http://localhost:8000/categories/) | Sesión |
+| 🔔 Notificaciones | [`/notifications/`](http://localhost:8000/notifications/) | Sesión |
+| 👥 Equipo | [`/team/`](http://localhost:8000/team/) | Manager+ |
+| 📖 Swagger UI | [`/swagger/`](http://localhost:8000/swagger/) | Público |
+| 📕 ReDoc | [`/redoc/`](http://localhost:8000/redoc/) | Público |
+| ⚙️ Admin Django | [`/admin/`](http://localhost:8000/admin/) | Staff |
 
-## 📋 Endpoints Principales
+---
 
-### Web fullstack (sesión)
+## 🌐 Web (sesión)
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/` | Dashboard + badge MySQL 3306 |
-| GET/POST | `/login/`, `/register/`, `/logout/` | Auth web |
-| GET | `/tasks/` | Lista + filtros + papelera `?filter=trash` |
-| GET/POST | `/tasks/new/`, `/tasks/<id>/edit/` | CRUD |
-| POST | `/tasks/<id>/complete/`, `/comment/`, `/attach/` | Colaboración |
-| GET/POST | `/categories/`, `/tags/` | Organización |
-| GET/POST | `/notifications/` | Email/push flags |
-| GET | `/team/` | Equipo (manager/admin) |
+| `GET` | `/` | Dashboard + estado MySQL |
+| `GET/POST` | `/login/` · `/register/` · `/logout/` | Autenticación web |
+| `GET` | `/tasks/?filter=trash` | Lista con filtros y papelera |
+| `GET/POST` | `/tasks/new/` · `/tasks/<id>/edit/` | Crear / editar |
+| `POST` | `/tasks/<id>/complete/` | Marcar como completada |
+| `POST` | `/tasks/<id>/comment/` | Añadir comentario |
+| `POST` | `/tasks/<id>/attach/` | Adjuntar archivo |
+| `GET/POST` | `/categories/` · `/tags/` | Organización |
+| `GET/POST` | `/notifications/` | Preferencias email/push |
 
-### API (JWT)
-### Tareas
+---
+
+## 🔌 API REST
+
+Base URL: `http://localhost:8000/api/v1/`
+
+### 🔐 Autenticación
+
+<details>
+<summary><b>Registro</b></summary>
+
+```http
+POST /api/v1/auth/register/
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "password_confirm": "SecurePass123!",
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+</details>
+
+<details>
+<summary><b>Login</b></summary>
+
+```http
+POST /api/v1/auth/login/
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response:**
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "full_name": "John Doe",
+    "role": "user"
+  }
+}
+```
+</details>
+
+<details>
+<summary><b>Usar el token</b></summary>
+
+```bash
+curl -H "Authorization: Bearer <access_token>" \
+  http://localhost:8000/api/v1/tasks/
+```
+</details>
+
+### 📋 Tareas
+
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| GET | `/api/v1/tasks/` | Listar tareas |
-| POST | `/api/v1/tasks/` | Crear tarea |
-| GET | `/api/v1/tasks/{id}/` | Detalle de tarea |
-| PATCH | `/api/v1/tasks/{id}/` | Actualizar tarea |
-| DELETE | `/api/v1/tasks/{id}/` | Eliminar (soft delete) |
-| POST | `/api/v1/tasks/{id}/complete/` | Completar tarea |
-| POST | `/api/v1/tasks/{id}/restore/` | Restaurar tarea |
-| GET | `/api/v1/tasks/my_tasks/` | Mis tareas |
-| GET | `/api/v1/tasks/overdue/` | Tareas vencidas |
-| GET | `/api/v1/tasks/trash/` | Tareas eliminadas |
+| `GET` | `/tasks/` | Listar tareas |
+| `POST` | `/tasks/` | Crear tarea |
+| `GET` | `/tasks/{id}/` | Detalle |
+| `PATCH` | `/tasks/{id}/` | Actualizar |
+| `DELETE` | `/tasks/{id}/` | Soft delete |
+| `POST` | `/tasks/{id}/complete/` | Completar |
+| `POST` | `/tasks/{id}/restore/` | Restaurar |
+| `GET` | `/tasks/my_tasks/` | Mis tareas |
+| `GET` | `/tasks/overdue/` | Vencidas |
+| `GET` | `/tasks/trash/` | Papelera |
 
-### Usuarios
+### 👤 Usuarios
+
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| GET | `/api/v1/users/me/` | Perfil actual |
-| PATCH | `/api/v1/users/update_profile/` | Actualizar perfil |
-| POST | `/api/v1/users/change_password/` | Cambiar contraseña |
-| GET | `/api/v1/users/team/` | Ver equipo (managers) |
+| `GET` | `/users/me/` | Perfil actual |
+| `PATCH` | `/users/update_profile/` | Actualizar perfil |
+| `POST` | `/users/change_password/` | Cambiar contraseña |
+| `GET` | `/users/team/` | Ver equipo (manager+) |
 
-### Analytics
+### 📊 Analytics
+
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| GET | `/api/v1/analytics/dashboard/` | Dashboard stats |
-| GET | `/api/v1/analytics/trends/` | Tendencias |
-| GET | `/api/v1/analytics/by-status/` | Por estado |
-| GET | `/api/v1/analytics/team/` | Stats de equipo |
+| `GET` | `/analytics/dashboard/` | Estadísticas generales |
+| `GET` | `/analytics/trends/` | Tendencias |
+| `GET` | `/analytics/by-status/` | Por estado |
+| `GET` | `/analytics/team/` | Stats del equipo |
 
-## 🎨 Frontend CSS
+---
 
-`static/css/app.css` — Atlas Design System (~1300 líneas): tokens (`--paper/--ink/--accent`), reset accesible, layout `.container/.grid-2/3/4`, header/nav, cards/stats, `.task` + badges estado/prioridad, formularios, comentarios, adjuntos, timeline historial, auth, notificaciones y equipo, responsive + `prefers-reduced-motion`. Se carga en `templates/base.html` (Tailwind CDN + HTMX como complemento).
+## 🎨 Frontend
+
+`static/css/app.css` implementa el **Atlas Design System**: tokens de color, layout responsive (`.container`, `.grid-2/3/4`), componentes (cards, `.task`, badges de estado/prioridad), formularios, comentarios y timeline. Complementado con **HTMX** para interactividad sin recargar y **Tailwind CDN** para utilidades puntuales.
+
+> Detalles técnicos del design system en [`docs/frontend.md`](docs/frontend.md).
+
+---
 
 ## 🧪 Testing
 
 ```bash
-# Ejecutar todos los tests
+# Todos los tests
 pytest
 
 # Con cobertura
 pytest --cov=apps --cov=core
 
-# Tests específicos
+# Un archivo específico
 pytest tests/test_tasks.py -v
+
+# Solo tests marcados
+pytest -m "not slow"
 ```
 
-## 🚦 Estado del Proyecto
+---
 
-✅ **Fullstack Opción A** – API JWT intacta + web Django con Atlas CSS
+## 🚦 Roadmap
 
-### Checklist
-
-- [x] Setup inicial del proyecto
-- [x] Modelos y migraciones (`makemigrations users tasks notifications analytics`)
-- [x] API CRUD básica
+### ✅ Completado
+- [x] Setup inicial y modelos (`users`, `tasks`, `notifications`, `analytics`)
+- [x] API CRUD completa con soft-delete
 - [x] Autenticación JWT + sesiones web
-- [x] Sistema de permisos (roles)
-- [x] Documentación Swagger
-- [x] Web `/`, `/tasks/`, `/categories/`, `/notifications/`, `/team/` + `static/css/app.css`
-- [x] Badge MySQL `localhost:3306` en dashboard
-- [x] Tests unitarios
-- [x] Optimizaciones y caché (`USE_REDIS=False` local / Redis prod)
-- [x] Features avanzadas (Celery, notificaciones)
+- [x] Sistema de permisos por roles
+- [x] Swagger / ReDoc
+- [x] Web fullstack (`/`, `/tasks/`, `/categories/`, `/notifications/`, `/team/`)
+- [x] Dashboard con badge MySQL `localhost:3306`
+- [x] Tests unitarios con pytest
+- [x] Caché Redis con fallback LocMem
+- [x] Celery + notificaciones
 
-## 👨‍💻 Autor
+### 🔜 Próximamente
+- [ ] Dockerización (`Dockerfile` + `docker-compose.yml`)
+- [ ] CI/CD con GitHub Actions
+- [ ] Cobertura de tests ≥ 85%
+- [ ] WebSockets para notificaciones en vivo
+- [ ] i18n (ES / EN)
 
-**Andres Felipe Celi Jimenez** – Proyecto Portfolio
+---
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Haz fork del repo
+2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit con [Conventional Commits](https://www.conventionalcommits.org/)
+4. Push y abre un Pull Request
+
+Lee [`CONTRIBUTING.md`](CONTRIBUTING.md) para más detalles.
+
+---
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia MIT – ver el archivo [LICENSE](LICENSE) para más detalles.
+Este proyecto está bajo la **Licencia MIT** — ver [`LICENSE`](LICENSE) para más detalles.
+
+---
+
+## 👨‍💻 Autor
+
+**Andrés Felipe Celi Jiménez**
+🔗 [GitHub](https://github.com/fceli6787) · 💼 [LinkedIn](https://www.linkedin.com/in/andres-felipe-celi-jimenez-a12a191a7/)
+
+Si este proyecto te resultó útil, dale una ⭐ — ¡motiva a seguir mejorando!
