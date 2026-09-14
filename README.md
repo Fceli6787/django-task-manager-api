@@ -13,7 +13,7 @@
 
 <!-- 📸 REEMPLAZA ESTO CON TUS CAPTURAS REALES -->
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard web" width="800">
+  <img width="1365" height="635" alt="image" src="https://github.com/user-attachments/assets/c5f040e3-7f90-436e-949e-0e246582bfbe" />
 </p>
 
 <p align="center">
