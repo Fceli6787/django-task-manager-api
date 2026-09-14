@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Notificaciones · Task Manager{% endblock %}
+{% block content %}
+
+<header class="page-header row-wrap" style="align-items: flex-end;">
+  <div style="flex: 1; min-width: 220px;">
+    <p class="eyebrow">Bandeja</p>
+    <h1 class="page-title">Notificaciones</h1>
+    <p class="page-subtitle">
+      {% if unread_count %}
+        {{ unread_count }} sin leer · {{ notifs|length }} reciente{{ notifs|length|pluralize }}
+      {% else %}
+        Todo al día.
+      {% endif %}
+    </p>
+  </div>
+
+  {% if unread_count %}
+    <form method="post" action="/notifications/read-all/">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--outline">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Marcar todas como leídas
+      </button>
+    </form>
+  {% endif %}
+</header>
+
+<ul class="notif-list">
+  {% for n in notifs %}
+    <li class="notif {% if not n.is_read %}notif--unread{% endif %}">
+
+      {% include "web/_notif_icon.html" with t=n.notification_type %}
+
+      <div class="notif__body">
+        <header class="notif__head">
+          <h2 class="notif__title">{{ n.title }}</h2>
+          {% if n.priority == 'high' %}
+            <span class="badge badge--priority-high">Alta</span>
+          {% endif %}
+          {% if not n.is_read %}
+            <span class="notif__dot" aria-label="No leída"></span>
+          {% endif %}
+        </header>
+
+        <p class="notif__message">{{ n.message }}</p>
+
+        <footer class="notif__foot">
+          <span>{{ n.get_notification_type_display }}</span>
+          <span aria-hidden="true">·</span>
+          <time datetime="{{ n.created_at|date:'c' }}">{{ n.created_at|naturaltime }}</time>
+          {% if n.sender %}
+            <span aria-hidden="true">·</span>
+            <span>de {{ n.sender.email }}</span>
+          {% endif %}
+        </footer>
+      </div>
+
+      <div class="notif__actions">
+        {% if n.task %}
+          <a href="/tasks/{{ n.task.id }}/" class="btn btn--ghost btn--sm">Ver tarea</a>
+        {% elif n.action_url %}
+          <a href="{{ n.action_url }}" class="btn btn--ghost btn--sm">Ver</a>
+        {% endif %}
+
+        {% if not n.is_read %}
+          <form method="post" action="/notifications/{{ n.id }}/read/">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--ghost btn--sm">Marcar leída</button>
+          </form>
+        {% endif %}
+      </div>
+
+    </li>
+  {% empty %}
+    <li class="empty">
+      <p class="empty__title">Todo al día</p>
+      <p class="empty__text">No tienes notificaciones por ahora. Te avisaremos cuando algo importante ocurra.</p>
+    </li>
+  {% endfor %}
+</ul>
+
+{% endblock %}

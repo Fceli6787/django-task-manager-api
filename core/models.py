@@ -29,12 +29,16 @@ class SoftDeleteManager(models.Manager):
     def deleted_only(self):
         return super().get_queryset().filter(is_deleted=True)
 
+    def hard_delete(self):
+        """Bulk hard delete (purge). Usar solo en limpieza admin."""
+        return super().get_queryset().delete()
+
 
 class SoftDeleteModel(TimeStampedModel):
     """
     Abstract model implementing soft delete functionality.
     """
-    is_deleted = models.BooleanField(default=False, verbose_name='Is deleted')
+    is_deleted = models.BooleanField(default=False, verbose_name='Is deleted', db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='Deleted at')
 
     objects = SoftDeleteManager()
@@ -45,6 +49,8 @@ class SoftDeleteModel(TimeStampedModel):
 
     def delete(self, using=None, keep_parents=False):
         """Soft delete the object instead of actually deleting it."""
+        if self.is_deleted:
+            return
         self.is_deleted = True
         self.deleted_at = timezone.now()
         self.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])
@@ -55,6 +61,8 @@ class SoftDeleteModel(TimeStampedModel):
 
     def restore(self):
         """Restore a soft-deleted object."""
+        if not self.is_deleted:
+            return
         self.is_deleted = False
         self.deleted_at = None
         self.save(update_fields=['is_deleted', 'deleted_at', 'updated_at'])

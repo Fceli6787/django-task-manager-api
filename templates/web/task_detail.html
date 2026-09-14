@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} · Task Manager{% endblock %}
+{% block content %}
+
+<a href="/tasks/" class="btn btn--ghost btn--sm mb-4">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+    <path d="M19 12H5M12 19l-7-7 7-7"/>
+  </svg>
+  Volver a tareas
+</a>
+
+<article class="card mb-4">
+
+  <header class="task-detail__head">
+    <div style="flex: 1; min-width: 200px;">
+      <div class="task-detail__badges">
+        <span class="badge badge--status-{{ task.status }}">{{ task.get_status_display }}</span>
+        <span class="badge badge--priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+        {% if task.is_recurring %}
+          <span class="badge badge--neutral">Recurrente · {{ task.get_recurrence_pattern_display }}</span>
+        {% endif %}
+      </div>
+      <h1 class="page-title mt-4">{{ task.title }}</h1>
+    </div>
+
+    <div class="row" style="flex-shrink: 0;">
+      {% if task.status != 'completed' %}
+        <form method="post" action="/tasks/{{ task.id }}/complete/">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Completar
+          </button>
+        </form>
+      {% endif %}
+      <a href="/tasks/{{ task.id }}/edit/" class="btn btn--outline">Editar</a>
+    </div>
+  </header>
+
+  <div class="progress mt-6" role="img" aria-label="{{ task.progress }} por ciento completado">
+    <div class="progress__bar" style="width: {{ task.progress }}%"></div>
+  </div>
+  <p class="text-xs text-muted mt-4" style="margin-top: 8px;">
+    {{ task.progress }}% completado · Creada por {{ task.owner.email }}
+  </p>
+
+  {% if task.description %}
+    <div class="prose mt-6">{{ task.description|linebreaks }}</div>
+  {% endif %}
+
+  <dl class="meta-grid mt-6">
+    <div>
+      <dt>Vence</dt>
+      <dd class="{% if task.is_overdue %}text-danger{% endif %}">
+        {% if task.due_date %}{{ task.due_date|date:"d M Y, H:i" }}{% else %}—{% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt>Inicio</dt>
+      <dd>{% if task.start_date %}{{ task.start_date|date:"d M Y, H:i" }}{% else %}—{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Categoría</dt>
+      <dd>{% if task.category %}{{ task.category.name }}{% else %}—{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Horas estimadas</dt>
+      <dd>{% if task.estimated_hours %}{{ task.estimated_hours }} h{% else %}—{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Asignados</dt>
+      <dd>
+        {% for u in task.assigned_to.all %}{{ u.email }}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}
+      </dd>
+    </div>
+    <div>
+      <dt>Subtarea de</dt>
+      <dd>
+        {% if task.parent %}
+          <a href="/tasks/{{ task.parent.id }}/" class="link">{{ task.parent.title }}</a>
+        {% else %}—{% endif %}
+      </dd>
+    </div>
+  </dl>
+
+  {% if task.tags.all %}
+    <div class="mt-6">
+      <p class="eyebrow" style="margin-bottom: 8px;">Tags</p>
+      <ul class="chips">
+        {% for tg in task.tags.all %}
+          <li class="chip">#{{ tg.name }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+</article>
+
+<section class="grid grid-2">
+
+  {# ---------- Comentarios ---------- #}
+  <div class="card">
+    <h2 class="card__title">Comentarios</h2>
+
+    <form method="post" action="/tasks/{{ task.id }}/comment/" style="margin-bottom: var(--s-4);">
+      {% csrf_token %}
+      <div class="field">
+        <label for="comment-content" class="sr-only">Escribe un comentario</label>
+        <textarea id="comment-content"
+                  name="content"
+                  required
+                  placeholder="Escribe… puedes mencionar con @nombre"
+                  class="textarea"
+                  style="min-height: 90px;"></textarea>
+      </div>
+      <div class="row mt-4" style="margin-top: 10px;">
+        <span class="text-xs text-muted">Usa @ para mencionar</span>
+        <button type="submit" class="btn btn--primary btn--sm ml-auto">Comentar</button>
+      </div>
+    </form>
+
+    <ul class="comments">
+      {% for c in comments %}
+        <li class="comment">
+          <div class="comment__avatar" aria-hidden="true">{{ c.author.email|slice:':1'|upper }}</div>
+          <div class="comment__body">
+            <div class="comment__head">
+              <strong>{{ c.author.email }}</strong>
+              <time class="text-xs text-muted" datetime="{{ c.created_at|date:'c' }}">{{ c.created_at|date:"d M, H:i" }}</time>
+            </div>
+            <p class="comment__text">{{ c.content|linebreaksbr }}</p>
+          </div>
+        </li>
+      {% empty %}
+        <li class="text-sm text-muted" style="text-align: center; padding: 24px 0;">
+          Sin comentarios todavía. Sé el primero.
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div>
+
+    {# ---------- Adjuntos ---------- #}
+    <div class="card mb-4">
+      <h2 class="card__title">Adjuntos</h2>
+
+      <form method="post" enctype="multipart/form-data"
+            action="/tasks/{{ task.id }}/attach/"
+            style="margin-bottom: var(--s-4);">
+        {% csrf_token %}
+        <label class="file-drop" for="attach-file">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span style="font-size: 13px; font-weight: 500;">Adjuntar archivo</span>
+          <span class="text-xs text-muted">Máx. 5 MB</span>
+          <input id="attach-file" type="file" name="file" required>
+        </label>
+        <button type="submit" class="btn btn--outline btn--sm" style="margin-top: 10px;">Subir</button>
+      </form>
+
+      <ul class="attachments">
+        {% for a in attachments %}
+          <li class="attachment">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <a href="{{ a.file.url }}" class="attachment__link" target="_blank" rel="noopener">{{ a.filename }}</a>
+            <span class="text-xs text-muted ml-auto">{{ a.file_size|filesizeformat }}</span>
+          </li>
+        {% empty %}
+          <li class="text-sm text-muted" style="text-align: center; padding: 16px 0;">Sin adjuntos.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {# ---------- Historial ---------- #}
+    <details class="card">
+      <summary class="history-summary">
+        <h2 class="card__title">Historial · {{ history|length }}</h2>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </summary>
+
+      <ul class="timeline mt-6" style="margin-top: var(--s-4);">
+        {% for h in history %}
+          <li class="timeline__item">
+            <span class="timeline__dot" aria-hidden="true"></span>
+            <div class="timeline__body">
+              <p class="text-sm">
+                <strong>{{ h.user.email }}</strong>
+                <span class="text-muted">· {{ h.action }}</span>
+              </p>
+              {% if h.field_name %}
+                <p class="text-xs text-muted mono" style="margin-top: 2px;">
+                  {{ h.field_name }}: {{ h.old_value|default:"—" }} → {{ h.new_value|default:"—" }}
+                </p>
+              {% endif %}
+              <time class="text-xs text-muted" datetime="{{ h.created_at|date:'c' }}">
+                {{ h.created_at|date:"d M Y, H:i" }}
+              </time>
+            </div>
+          </li>
+        {% empty %}
+          <li class="text-sm text-muted" style="text-align: center; padding: 16px 0;">Sin historial.</li>
+        {% endfor %}
+      </ul>
+    </details>
+
+  </div>
+
+</section>
+
+{% endblock %}

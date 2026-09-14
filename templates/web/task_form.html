@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ mode }} tarea · Task Manager{% endblock %}
+{% block content %}
+
+<header class="page-header">
+  <p class="eyebrow">Tareas</p>
+  <h1 class="page-title">{{ mode }} tarea</h1>
+  <p class="page-subtitle">Completa lo esencial y guarda. Puedes afinar detalles después.</p>
+</header>
+
+<div class="card" style="max-width: 780px;">
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for err in form.non_field_errors %}<p>{{ err }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    {# ---------- Básico ---------- #}
+    <fieldset class="form-section">
+      <legend class="form-section__legend">Básico</legend>
+      <div class="form-grid">
+        {% include "web/_field.html" with field=form.title %}
+        {% include "web/_field.html" with field=form.description %}
+        {% include "web/_field.html" with field=form.status %}
+        {% include "web/_field.html" with field=form.priority %}
+        {% include "web/_field.html" with field=form.start_date %}
+        {% include "web/_field.html" with field=form.due_date %}
+      </div>
+    </fieldset>
+
+    {# ---------- Organización ---------- #}
+    <fieldset class="form-section">
+      <legend class="form-section__legend">Organización</legend>
+      <div class="form-grid">
+        {% include "web/_field.html" with field=form.category %}
+        {% include "web/_field.html" with field=form.estimated_hours %}
+        {% include "web/_field.html" with field=form.tags %}
+        {% include "web/_field.html" with field=form.assigned_to %}
+        {% include "web/_field.html" with field=form.parent %}
+      </div>
+    </fieldset>
+
+    {# ---------- Recurrencia (colapsable) ---------- #}
+    <details class="form-section form-section--collapsible"
+      {% if form.is_recurring.value or form.recurrence_pattern.value and form.recurrence_pattern.value != 'none' or form.recurrence_pattern.errors or form.recurrence_end_date.errors %}open{% endif %}>
+      <summary class="form-section__legend" style="margin-bottom: 0;">Recurrencia</summary>
+      <div class="form-grid">
+        {% include "web/_field.html" with field=form.is_recurring %}
+        {% include "web/_field.html" with field=form.recurrence_pattern %}
+        {% include "web/_field.html" with field=form.recurrence_end_date %}
+      </div>
+    </details>
+
+    <div class="form-actions">
+      <a href="/tasks/" class="btn btn--ghost">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Guardar
+      </button>
+    </div>
+  </form>
+
+</div>
+
+{% endblock %}

@@ -88,6 +88,16 @@ class TaskAttachmentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'uploaded_by', 'file_size', 'mime_type', 'created_at']
 
+    def validate_file(self, value):
+        # FIX: alinear con FILE_UPLOAD_MAX (5MB) y bloquear ejecutables.
+        max_size = 5 * 1024 * 1024
+        if value.size > max_size:
+            raise serializers.ValidationError(f'File too large. Max {max_size} bytes.')
+        blocked = ('.exe', '.bat', '.sh', '.msi', '.dll', '.ps1')
+        if value.name.lower().endswith(blocked):
+            raise serializers.ValidationError('File type not allowed.')
+        return value
+
     def create(self, validated_data):
         validated_data['uploaded_by'] = self.context['request'].user
         file = validated_data['file']
@@ -114,6 +124,8 @@ class TaskHistorySerializer(serializers.ModelSerializer):
 class TaskListSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for task lists.
+    Usa anotaciones assigned_count/comments_count si vienen del queryset,
+    si no hace fallback a count() (subtareas, trash sin annotar).
     """
     owner_name = serializers.CharField(source='owner.full_name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -131,15 +143,21 @@ class TaskListSerializer(serializers.ModelSerializer):
         ]
 
     def get_assigned_count(self, obj):
+        if hasattr(obj, 'assigned_count') and isinstance(obj.assigned_count, int):
+            return obj.assigned_count
         return obj.assigned_to.count()
 
     def get_comments_count(self, obj):
+        if hasattr(obj, 'comments_count') and isinstance(obj.comments_count, int):
+            return obj.comments_count
         return obj.comments.count()
 
 
 class TaskDetailSerializer(serializers.ModelSerializer):
     """
     Full serializer for task details.
+    NOTA: comments/attachments se exponen paginados vía nested routes,
+    aquí solo conteos para evitar OOM con 10k comentarios.
     """
     owner_name = serializers.CharField(source='owner.full_name', read_only=True)
     category = CategorySerializer(read_only=True)
@@ -159,8 +177,8 @@ class TaskDetailSerializer(serializers.ModelSerializer):
         required=False
     )
     assigned_to_details = serializers.SerializerMethodField()
-    comments = CommentSerializer(many=True, read_only=True)
-    attachments = TaskAttachmentSerializer(many=True, read_only=True)
+    comments_count = serializers.SerializerMethodField()
+    attachments_count_display = serializers.IntegerField(source='attachments_count', read_only=True)
     subtasks = serializers.SerializerMethodField()
     parent_title = serializers.CharField(source='parent.title', read_only=True)
 
@@ -174,7 +192,7 @@ class TaskDetailSerializer(serializers.ModelSerializer):
             'category', 'category_id', 'tags', 'tag_ids',
             'parent', 'parent_title', 'subtasks',
             'is_recurring', 'recurrence_pattern', 'recurrence_end_date',
-            'attachments_count', 'comments', 'attachments',
+            'attachments_count', 'attachments_count_display', 'comments_count',
             'is_overdue', 'subtask_count', 'completed_subtasks_count',
             'created_at', 'updated_at', 'is_deleted', 'deleted_at'
         ]
@@ -183,12 +201,25 @@ class TaskDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'is_deleted', 'deleted_at'
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # FIX IDOR: solo categorías/tags propios.
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            self.fields['category_id'].queryset = Category.objects.filter(owner=request.user)
+            self.fields['tag_ids'].child_relation.queryset = Tag.objects.filter(owner=request.user)
+
     def get_assigned_to_details(self, obj):
         from apps.users.serializers import UserListSerializer
         return UserListSerializer(obj.assigned_to.all(), many=True).data
 
+    def get_comments_count(self, obj):
+        if hasattr(obj, 'comments_count') and isinstance(obj.comments_count, int):
+            return obj.comments_count
+        return obj.comments.count()
+
     def get_subtasks(self, obj):
-        subtasks = obj.subtasks.filter(is_deleted=False)
+        subtasks = obj.subtasks.filter(is_deleted=False)[:20]
         return TaskListSerializer(subtasks, many=True).data
 
 
@@ -196,6 +227,7 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating tasks.
     """
+    id = serializers.IntegerField(read_only=True)
     tag_ids = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(),
         source='tags',
@@ -214,12 +246,31 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'title', 'description', 'status', 'priority',
+            'id', 'title', 'description', 'status', 'priority',
             'due_date', 'start_date', 'category',
             'tag_ids', 'assigned_to_ids', 'parent',
             'estimated_hours', 'is_recurring', 'recurrence_pattern',
             'recurrence_end_date'
         ]
+        read_only_fields = ['id']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            self.fields['category'].queryset = Category.objects.filter(owner=request.user)
+            self.fields['tag_ids'].child_relation.queryset = Tag.objects.filter(owner=request.user)
+            if 'parent' in self.fields:
+                self.fields['parent'].queryset = Task.objects.filter(owner=request.user)
+
+    def validate(self, attrs):
+        if attrs.get('start_date') and attrs.get('due_date'):
+            if attrs['due_date'] < attrs['start_date']:
+                raise serializers.ValidationError({'due_date': 'due_date must be >= start_date.'})
+        parent = attrs.get('parent')
+        if parent and parent.is_deleted:
+            raise serializers.ValidationError({'parent': 'Parent is deleted.'})
+        return attrs
 
     def create(self, validated_data):
         tags = validated_data.pop('tags', [])
@@ -262,7 +313,32 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
             'recurrence_pattern', 'recurrence_end_date'
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            self.fields['category'].queryset = Category.objects.filter(owner=request.user)
+            self.fields['tag_ids'].child_relation.queryset = Tag.objects.filter(owner=request.user)
+
+    def validate_progress(self, value):
+        if value is not None and not 0 <= value <= 100:
+            raise serializers.ValidationError('Progress must be 0-100.')
+        return value
+
+    def validate(self, attrs):
+        # Asignados no pueden editar campos salvo status (defensa en profundidad).
+        request = self.context.get('request')
+        instance = getattr(self, 'instance', None)
+        if request and instance and instance.owner != request.user and getattr(request.user, 'role', None) not in ('admin', 'manager'):
+            allowed = {'status'}
+            extra = set(attrs.keys()) - allowed
+            if extra:
+                raise serializers.ValidationError('Assigned users can only update status. Use dedicated endpoint.')
+        return attrs
+
     def update(self, instance, validated_data):
+        # FIX: capturar old_status ANTES de mutar (antes siempre False).
+        old_status = instance.status
         tags = validated_data.pop('tags', None)
         assigned_to = validated_data.pop('assigned_to', None)
         
@@ -270,11 +346,12 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         
         # Handle completion
-        if validated_data.get('status') == 'completed' and instance.status != 'completed':
+        if validated_data.get('status') == 'completed' and old_status != 'completed':
             from django.utils import timezone
             instance.completed_at = timezone.now()
             instance.progress = 100
         
+        instance.full_clean(exclude=['owner', 'created_at', 'updated_at'])
         instance.save()
         
         if tags is not None:

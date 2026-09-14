@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Panel · Task Manager{% endblock %}
+{% block content %}
+
+<header class="page-header">
+  <p class="eyebrow">Panel</p>
+  <h1 class="page-title">Hola{% if user.first_name %}, {{ user.first_name }}{% endif %}.</h1>
+  <p class="page-subtitle">
+    Tienes <strong>{{ s.pending_tasks }}</strong> tarea{{ s.pending_tasks|pluralize }} pendiente{{ s.pending_tasks|pluralize }}
+    {% if s.overdue_tasks %}
+      y <strong class="text-danger">{{ s.overdue_tasks }}</strong> vencida{{ s.overdue_tasks|pluralize }}
+    {% endif %}.
+  </p>
+</header>
+
+<section class="grid grid-3 mb-4">
+  <article class="card grid-span-2">
+    <p class="eyebrow">Progreso global</p>
+    <p class="stat-hero">
+      {{ s.completion_rate }}<span class="stat-hero__unit">%</span>
+    </p>
+    <p class="page-subtitle">
+      {{ s.completed_tasks }} de {{ s.total_tasks }} tareas completadas
+    </p>
+    <div class="progress" role="img" aria-label="{{ s.completion_rate }} por ciento completado">
+      <div class="progress__bar" style="width: {{ s.completion_rate }}%"></div>
+    </div>
+  </article>
+
+  <article class="card">
+    <p class="eyebrow">Requiere atención</p>
+    <dl class="stat-list">
+      <div>
+        <dt>Vencidas</dt>
+        <dd class="{% if s.overdue_tasks %}is-danger{% else %}is-muted{% endif %}">{{ s.overdue_tasks }}</dd>
+      </div>
+      <div>
+        <dt>Vencen hoy</dt>
+        <dd class="{% if not s.tasks_due_today %}is-muted{% endif %}">{{ s.tasks_due_today }}</dd>
+      </div>
+      <div>
+        <dt>Urgentes</dt>
+        <dd class="{% if not s.urgent_tasks %}is-muted{% endif %}">{{ s.urgent_tasks }}</dd>
+      </div>
+    </dl>
+    {% if s.overdue_tasks or s.tasks_due_today %}
+      <a href="/tasks/?status=pending" class="btn btn--ghost btn--sm mt-4">
+        Ver tareas pendientes
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M5 12h14M13 5l7 7-7 7"/>
+        </svg>
+      </a>
+    {% endif %}
+  </article>
+</section>
+
+<section class="grid grid-4 mb-8">
+  <div class="stat">
+    <p class="stat__label">Total</p>
+    <p class="stat__value">{{ s.total_tasks }}</p>
+  </div>
+  <div class="stat">
+    <p class="stat__label">En progreso</p>
+    <p class="stat__value">{{ s.in_progress_tasks }}</p>
+  </div>
+  <div class="stat">
+    <p class="stat__label">Vencen esta semana</p>
+    <p class="stat__value">{{ s.tasks_due_this_week }}</p>
+  </div>
+  <div class="stat">
+    <p class="stat__label">Pendientes</p>
+    <p class="stat__value">{{ s.pending_tasks }}</p>
+  </div>
+</section>
+
+<section class="grid grid-2 mb-8">
+
+  <article class="card">
+    <h2 class="card__title">Por estado</h2>
+    {% if by_status %}
+      <ul class="dist">
+        {% for r in by_status %}
+          {% widthratio r.count s.total_tasks 100 as pct %}
+          <li class="dist__row">
+            <div class="dist__row-head">
+              <span>{{ r.status }}</span>
+              <span>{{ r.count }}</span>
+            </div>
+            <div class="dist__track">
+              <div class="dist__bar" style="width: {{ pct }}%"></div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-sm text-muted">Aún no hay datos para mostrar.</p>
+    {% endif %}
+  </article>
+
+  <article class="card">
+    <h2 class="card__title">Por prioridad</h2>
+
+    {% widthratio s.urgent_tasks s.total_tasks 100 as pct_urgent %}
+    {% widthratio s.high_priority_tasks s.total_tasks 100 as pct_high %}
+    {% widthratio s.medium_priority_tasks s.total_tasks 100 as pct_medium %}
+    {% widthratio s.low_priority_tasks s.total_tasks 100 as pct_low %}
+
+    <div class="segbar" role="img" aria-label="Distribución de tareas por prioridad">
+      <div class="seg-danger"   style="width: {{ pct_urgent }}%"></div>
+      <div class="seg-warning"  style="width: {{ pct_high }}%"></div>
+      <div class="seg-accent"   style="width: {{ pct_medium }}%"></div>
+      <div class="seg-positive" style="width: {{ pct_low }}%"></div>
+    </div>
+
+    <ul class="legend">
+      <li class="legend__item">
+        <span class="legend__dot legend__dot--danger" aria-hidden="true"></span>
+        <span>Urgente</span>
+        <span class="legend__count">{{ s.urgent_tasks }}</span>
+      </li>
+      <li class="legend__item">
+        <span class="legend__dot legend__dot--warning" aria-hidden="true"></span>
+        <span>Alta</span>
+        <span class="legend__count">{{ s.high_priority_tasks }}</span>
+      </li>
+      <li class="legend__item">
+        <span class="legend__dot legend__dot--accent" aria-hidden="true"></span>
+        <span>Media</span>
+        <span class="legend__count">{{ s.medium_priority_tasks }}</span>
+      </li>
+      <li class="legend__item">
+        <span class="legend__dot legend__dot--positive" aria-hidden="true"></span>
+        <span>Baja</span>
+        <span class="legend__count">{{ s.low_priority_tasks }}</span>
+      </li>
+    </ul>
+  </article>
+</section>
+
+<section class="card row-wrap">
+  <div style="flex: 1; min-width: 220px;">
+    <h2 class="card__title" style="margin-bottom: 4px;">Reporte semanal</h2>
+    <p class="text-sm text-muted">Genera un resumen con las métricas de la semana en curso.</p>
+  </div>
+  <form method="post" action="/reports/generate/">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Generar reporte
+    </button>
+  </form>
+</section>
+
+{% if user.is_staff %}
+<section class="mt-8 row-wrap text-xs text-muted mono">
+  <span class="row" style="gap: 6px;">
+    <span style="display:inline-block; width:6px; height:6px; border-radius:999px; background: {% if db.ok %}var(--positive){% else %}var(--danger){% endif %};"></span>
+    DB {{ db.engine }} · {{ db.host }}:{{ db.port }}/{{ db.name }}
+  </span>
+  <span class="ml-auto">API /api/v1/ · Swagger /swagger/</span>
+</section>
+{% endif %}
+
+{% endblock %}

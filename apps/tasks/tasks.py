@@ -10,81 +10,85 @@ from datetime import timedelta
 @shared_task
 def check_overdue_tasks():
     """
-    Check for overdue tasks and create notifications.
+    Check for overdue tasks and create notifications (idempotente + bulk).
     """
     from apps.tasks.models import Task
     from apps.notifications.models import Notification
     
     now = timezone.now()
     
-    # Find tasks that just became overdue (within the last hour)
-    one_hour_ago = now - timedelta(hours=1)
-    
-    overdue_tasks = Task.objects.filter(
+    # FIX: no ventana de 1h (perdía tareas si Beat caía). Marca idempotente.
+    overdue_tasks = Task.objects.select_related('owner').prefetch_related('assigned_to').filter(
         due_date__lt=now,
-        due_date__gte=one_hour_ago,
+        overdue_notified_at__isnull=True,
         status__in=['pending', 'in_progress', 'on_hold']
-    )
+    )[:2000]
     
-    notifications_created = 0
+    to_create = []
+    to_mark_ids = []
     for task in overdue_tasks:
-        # Notify owner
-        Notification.objects.create(
+        to_create.append(Notification(
             recipient=task.owner,
             notification_type='task_overdue',
             title='Task Overdue',
             message=f'Your task "{task.title}" is now overdue.',
             task=task,
             priority='high'
-        )
-        notifications_created += 1
-        
-        # Notify assigned users
+        ))
+        to_mark_ids.append(task.id)
         for user in task.assigned_to.all():
-            if user != task.owner:
-                Notification.objects.create(
+            if user.id != task.owner_id:
+                to_create.append(Notification(
                     recipient=user,
                     notification_type='task_overdue',
                     title='Assigned Task Overdue',
                     message=f'The task "{task.title}" assigned to you is now overdue.',
                     task=task,
                     priority='high'
-                )
-                notifications_created += 1
+                ))
     
-    return f'Created {notifications_created} overdue notifications'
+    if to_create:
+        Notification.objects.bulk_create(to_create, batch_size=500, ignore_conflicts=True)
+    if to_mark_ids:
+        Task.objects.filter(id__in=to_mark_ids).update(overdue_notified_at=now)
+    
+    return f'Created {len(to_create)} overdue notifications'
 
 
 @shared_task
 def process_recurring_tasks():
     """
-    Process recurring tasks and create new instances.
+    Process recurring tasks and create new instances (idempotente, fechas reales).
     """
     from apps.tasks.models import Task
+    from dateutil.relativedelta import relativedelta
     
     now = timezone.now()
-    today = now.date()
     
-    # Find recurring tasks that need new instances
-    recurring_tasks = Task.objects.filter(
+    # FIX: solo genera si no se generó en las últimas 20h (evita duplicado diario).
+    cutoff = now - timedelta(hours=20)
+    recurring_tasks = Task.objects.select_related('category', 'owner').prefetch_related('tags', 'assigned_to').filter(
         is_recurring=True,
         status='completed',
         recurrence_pattern__in=['daily', 'weekly', 'monthly', 'yearly']
+    ).filter(
+        Q(last_recurrence_at__isnull=True) | Q(last_recurrence_at__lt=cutoff)
     ).exclude(
         recurrence_end_date__lt=now
-    )
+    )[:500]
     
     tasks_created = 0
     for task in recurring_tasks:
-        # Calculate next due date based on pattern
+        base = task.due_date or now
+        # FIX: relativedelta para monthly/yearly (antes +30/+365 fijos).
         if task.recurrence_pattern == 'daily':
-            next_due = task.due_date + timedelta(days=1) if task.due_date else now + timedelta(days=1)
+            next_due = base + timedelta(days=1)
         elif task.recurrence_pattern == 'weekly':
-            next_due = task.due_date + timedelta(weeks=1) if task.due_date else now + timedelta(weeks=1)
+            next_due = base + timedelta(weeks=1)
         elif task.recurrence_pattern == 'monthly':
-            next_due = task.due_date + timedelta(days=30) if task.due_date else now + timedelta(days=30)
+            next_due = base + relativedelta(months=1)
         elif task.recurrence_pattern == 'yearly':
-            next_due = task.due_date + timedelta(days=365) if task.due_date else now + timedelta(days=365)
+            next_due = base + relativedelta(years=1)
         else:
             continue
         
@@ -109,6 +113,9 @@ def process_recurring_tasks():
         # Copy tags and assignees
         new_task.tags.set(task.tags.all())
         new_task.assigned_to.set(task.assigned_to.all())
+
+        task.last_recurrence_at = now
+        task.save(update_fields=['last_recurrence_at', 'updated_at'])
         
         tasks_created += 1
     

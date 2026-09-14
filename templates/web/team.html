@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Equipo · Task Manager{% endblock %}
+{% block content %}
+
+<header class="page-header">
+  <p class="eyebrow">Equipo</p>
+  <h1 class="page-title">Miembros</h1>
+  <p class="page-subtitle">
+    {{ team_size }} persona{{ team_size|pluralize }} con acceso al espacio de trabajo.
+  </p>
+</header>
+
+<section class="grid grid-3">
+  {% for m in members %}
+    <article class="member">
+
+      <header class="member__head">
+        {% with display=m.name|default:m.email %}
+          <div class="member__avatar" aria-hidden="true">{{ display|slice:':1'|upper }}</div>
+        {% endwith %}
+        <div class="member__id">
+          <h2 class="member__name">{{ m.name|default:m.email }}</h2>
+          {% if m.name %}<p class="member__email">{{ m.email }}</p>{% endif %}
+        </div>
+      </header>
+
+      <div class="member__rate">
+        <span class="member__rate-value">
+          {{ m.completion_rate|floatformat:0 }}<small>%</small>
+        </span>
+        <span class="member__rate-label">completado</span>
+      </div>
+
+      <div class="progress" style="margin-top: 0;">
+        <div class="progress__bar" style="width: {{ m.completion_rate }}%"></div>
+      </div>
+
+      <dl class="member__stats">
+        <div>
+          <dt>Total</dt>
+          <dd>{{ m.total_tasks }}</dd>
+        </div>
+        <div>
+          <dt>Hechas</dt>
+          <dd>{{ m.completed_tasks }}</dd>
+        </div>
+        <div>
+          <dt>Vencidas</dt>
+          <dd class="{% if m.overdue_tasks %}text-danger{% endif %}">{{ m.overdue_tasks }}</dd>
+        </div>
+      </dl>
+
+    </article>
+  {% empty %}
+    <div class="empty" style="grid-column: 1 / -1;">
+      <p class="empty__title">Aún no hay equipo</p>
+      <p class="empty__text">Invita a personas desde el panel de administración o desde la API.</p>
+    </div>
+  {% endfor %}
+</section>
+
+{% endblock %}

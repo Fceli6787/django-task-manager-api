@@ -1,6 +1,7 @@
 """
 Views for the Analytics app.
 """
+from django.core.cache import cache
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,6 +17,7 @@ from drf_yasg import openapi
 from core.permissions import IsManagerOrAdmin
 from core.pagination import StandardResultsSetPagination
 from apps.tasks.models import Task
+from apps.tasks.views import get_visible_tasks
 from .models import DailyTaskStats, TeamStats, ProductivityReport, CategoryStats
 from .serializers import (
     DailyTaskStatsSerializer, TeamStatsSerializer,
@@ -35,24 +37,18 @@ class DashboardView(APIView):
         responses={200: DashboardSummarySerializer}
     )
     def get(self, request):
-        """Get dashboard summary for current user."""
+        """Get dashboard summary for current user (cache 120s)."""
         user = request.user
+        cache_key = f'dashboard:{user.id}:{user.role}'
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         now = timezone.now()
         today = now.date()
         week_from_now = today + timedelta(days=7)
         
-        # Get user's tasks
-        if user.role == 'admin':
-            tasks = Task.objects.all()
-        elif user.role == 'manager':
-            team_ids = user.team_members.values_list('id', flat=True)
-            tasks = Task.objects.filter(
-                Q(owner=user) | Q(assigned_to=user) | Q(owner__in=team_ids)
-            )
-        else:
-            tasks = Task.objects.filter(Q(owner=user) | Q(assigned_to=user))
-        
-        tasks = tasks.distinct()
+        # FIX: fuente única RBAC (antes 4 variantes divergentes).
+        tasks = get_visible_tasks(user)
         
         # Calculate stats
         total_tasks = tasks.count()
@@ -109,6 +105,7 @@ class DashboardView(APIView):
         }
         
         serializer = DashboardSummarySerializer(data)
+        cache.set(cache_key, serializer.data, 120)
         return Response(serializer.data)
 
 
@@ -128,7 +125,12 @@ class TaskTrendsView(APIView):
     def get(self, request):
         """Get task trends for charts."""
         user = request.user
-        days = int(request.query_params.get('days', 30))
+        try:
+            days = int(request.query_params.get('days', 30))
+        except (ValueError, TypeError):
+            return Response({'error': 'Invalid days param.'}, status=status.HTTP_400_BAD_REQUEST)
+        # FIX: clamp anti-DoS (antes ?days=999999 OOM, ?days=abc 500).
+        days = max(1, min(days, 90))
         start_date = timezone.now().date() - timedelta(days=days)
         
         # Get user's tasks
@@ -261,12 +263,12 @@ class TeamAnalyticsView(APIView):
         
         team_stats = []
         for member in team_members:
-            member_tasks = Task.objects.filter(Q(owner=member) | Q(assigned_to=member)).distinct()
+            member_tasks = get_visible_tasks(member)
             total = member_tasks.count()
             completed = member_tasks.filter(status='completed').count()
             overdue = member_tasks.filter(
                 due_date__lt=timezone.now(),
-                status__in=['pending', 'in_progress']
+                status__in=['pending', 'in_progress', 'on_hold']
             ).count()
             
             team_stats.append({

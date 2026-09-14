@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Tareas · Task Manager{% endblock %}
+{% block content %}
+
+{% with is_trash=request.GET.filter %}
+
+<header class="page-header row-wrap" style="align-items: flex-end;">
+  <div style="flex: 1; min-width: 200px;">
+    <p class="eyebrow">{% if is_trash == 'trash' %}Archivo{% else %}Trabajo{% endif %}</p>
+    <h1 class="page-title">{% if is_trash == 'trash' %}Papelera{% else %}Tareas{% endif %}</h1>
+    <p class="page-subtitle">
+      {% if is_trash == 'trash' %}
+        Puedes restaurarlas o eliminarlas definitivamente.
+      {% elif is_paginated %}
+        {{ page_obj.paginator.count }} tarea{{ page_obj.paginator.count|pluralize }} en total.
+      {% else %}
+        {{ tasks|length }} tarea{{ tasks|length|pluralize }}.
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="row">
+    {% if is_trash == 'trash' %}
+      <a href="/tasks/" class="btn btn--outline">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Volver a tareas
+      </a>
+    {% else %}
+      <a href="/tasks/?filter=trash" class="btn btn--outline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+        </svg>
+        Papelera
+      </a>
+      <a href="/tasks/new/" class="btn btn--primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+        Nueva tarea
+      </a>
+    {% endif %}
+  </div>
+</header>
+
+{% if is_trash != 'trash' %}
+<form method="get" class="filter-bar">
+  <div class="filter-bar__grow field">
+    <label for="q" class="field__label">Buscar</label>
+    <div class="search-wrap">
+      <svg class="search-wrap__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="q" name="search" type="search" value="{{ search }}" placeholder="Título, descripción…" class="input input--search">
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="f-status" class="field__label">Estado</label>
+    <select id="f-status" name="status" class="select">
+      <option value="">Todos</option>
+      {% for v,l in status_choices %}<option value="{{ v }}" {% if v == f_status %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="f-priority" class="field__label">Prioridad</label>
+    <select id="f-priority" name="priority" class="select">
+      <option value="">Todas</option>
+      {% for v,l in priority_choices %}<option value="{{ v }}" {% if v == f_priority %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </div>
+
+  <div class="filter-bar__actions">
+    <button type="submit" class="btn btn--primary">Aplicar</button>
+    {% if search or f_status or f_priority %}
+      <a href="/tasks/" class="btn btn--ghost">Limpiar</a>
+    {% endif %}
+  </div>
+</form>
+{% endif %}
+
+<ul class="task-list">
+  {% for t in tasks %}
+  <li id="task-{{ t.id }}" class="task">
+    <div class="task__inner">
+
+      <span class="task__priority task__priority--{{ t.priority }}" aria-hidden="true"></span>
+
+      <div class="task__body">
+        <a href="/tasks/{{ t.id }}/" class="task__title">{{ t.title }}</a>
+        <div class="task__meta">
+          <span>{{ t.get_status_display }}</span>
+          <span aria-hidden="true">·</span>
+          <span>{{ t.get_priority_display }}</span>
+          {% if t.due_date %}
+            <span aria-hidden="true">·</span>
+            <span class="{% if t.is_overdue %}is-overdue{% endif %}">
+              {% if t.is_overdue %}Vencida el{% else %}Vence el{% endif %} {{ t.due_date|date:"d M" }}
+            </span>
+          {% endif %}
+          {% if t.owner %}
+            <span aria-hidden="true">·</span>
+            <span>{{ t.owner.email }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="task__actions">
+
+        {% if is_trash != 'trash' and t.status != 'completed' %}
+          <form method="post" action="/tasks/{{ t.id }}/complete/"
+                hx-post="/tasks/{{ t.id }}/complete/"
+                hx-target="#task-{{ t.id }}"
+                hx-swap="outerHTML">
+            {% csrf_token %}
+            <button type="submit"
+                    class="icon-btn"
+                    aria-label="Marcar «{{ t.title }}» como completada"
+                    title="Completar"
+                    style="color: var(--positive);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </form>
+        {% endif %}
+
+        <a href="/tasks/{{ t.id }}/edit/"
+           class="icon-btn"
+           aria-label="Editar «{{ t.title }}»"
+           title="Editar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+          </svg>
+        </a>
+
+        <details class="more-menu">
+          <summary aria-label="Más acciones para «{{ t.title }}»">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.5"/>
+              <circle cx="12" cy="12" r="1.5"/>
+              <circle cx="19" cy="12" r="1.5"/>
+            </svg>
+          </summary>
+          <div class="more-menu__panel">
+            {% if is_trash == 'trash' %}
+              <form method="post" action="/tasks/{{ t.id }}/restore/">
+                {% csrf_token %}
+                <button type="submit">Restaurar</button>
+              </form>
+              <form method="post" action="/tasks/{{ t.id }}/purge/"
+                    onsubmit="return confirm('¿Eliminar «{{ t.title|escapejs }}» definitivamente? Esta acción no se puede deshacer.')">
+                {% csrf_token %}
+                <button type="submit" class="is-danger">Eliminar definitivamente</button>
+              </form>
+            {% else %}
+              <form method="post" action="/tasks/{{ t.id }}/delete/"
+                    onsubmit="return confirm('¿Mover «{{ t.title|escapejs }}» a la papelera? Podrás restaurarla después.')">
+                {% csrf_token %}
+                <button type="submit" class="is-danger">Mover a papelera</button>
+              </form>
+            {% endif %}
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </li>
+  {% empty %}
+  <li>
+    <div class="empty">
+      {% if is_trash == 'trash' %}
+        <p class="empty__title">Papelera vacía</p>
+        <p class="empty__text">Las tareas que muevas aquí aparecerán en esta vista durante 30 días.</p>
+      {% else %}
+        <p class="empty__title">
+          {% if search or f_status or f_priority %}Sin resultados{% else %}Aún no hay tareas{% endif %}
+        </p>
+        <p class="empty__text">
+          {% if search or f_status or f_priority %}
+            Prueba a quitar algún filtro o ampliar la búsqueda.
+          {% else %}
+            Crea la primera tarea para empezar a organizar el trabajo del equipo.
+          {% endif %}
+        </p>
+        {% if search or f_status or f_priority %}
+          <a href="/tasks/" class="btn btn--outline">Limpiar filtros</a>
+        {% else %}
+          <a href="/tasks/new/" class="btn btn--primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Crear la primera tarea
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+
+{% if is_paginated %}
+{% with qs="search="|add:search|add:"&status="|add:f_status|add:"&priority="|add:f_priority %}
+<nav class="pagination" aria-label="Paginación">
+  <div>
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&{{ qs }}">← Anterior</a>
+    {% endif %}
+  </div>
+  <span class="pagination__info">Pág. {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  <div>
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&{{ qs }}">Siguiente →</a>
+    {% endif %}
+  </div>
+</nav>
+{% endwith %}
+{% endif %}
+
+{% endwith %}
+{% endblock %}

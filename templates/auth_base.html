@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}Task Manager{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+
+<body class="auth-page">
+
+  <a href="/" class="auth-brand">
+    <span class="auth-brand__dot" aria-hidden="true"></span>
+    Task Manager
+  </a>
+
+  {% if messages %}
+    <div class="alerts" role="status" aria-live="polite" style="width: 100%; max-width: 420px; margin-bottom: var(--s-4);">
+      {% for m in messages %}
+        {% with tags=m.tags %}
+        <div class="alert
+          {% if 'error' in tags %}alert--danger
+          {% elif 'success' in tags %}alert--success
+          {% elif 'warning' in tags %}alert--warning{% endif %}">
+          <span>{{ m }}</span>
+        </div>
+        {% endwith %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  <p class="auth-page__footer">
+    © {% now "Y" %} Task Manager · Gestión de tareas
+  </p>
+
+</body>
+</html>

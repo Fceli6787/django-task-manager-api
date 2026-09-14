@@ -1,34 +1,31 @@
-# Python image
-FROM python:3.11-slim
+# General: API + Web Django (Opción A) — no atado a ningún PC.
+FROM python:3.12-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-# Set work directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    default-libmysqlclient-dev \
-    build-essential \
-    pkg-config \
+# Deps sistema para mysqlclient + Pillow
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    default-libmysqlclient-dev build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements/base.txt requirements/base.txt
-COPY requirements/prod.txt requirements/prod.txt
-RUN pip install --upgrade pip
-RUN pip install -r requirements/prod.txt
+COPY requirements/base.txt requirements/prod.txt ./requirements/
+RUN pip install --upgrade pip setuptools==68.0.0 \
+ && pip install -r requirements/prod.txt
 
-# Copy project
 COPY . .
 
-# Create logs directory
-RUN mkdir -p /app/logs
+RUN mkdir -p /app/logs /app/media /app/staticfiles \
+ && python manage.py collectstatic --noinput || true
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# No root en prod
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "config.wsgi:application"]
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/login/?next=/admin/')" || exit 1
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60", "config.wsgi:application"]

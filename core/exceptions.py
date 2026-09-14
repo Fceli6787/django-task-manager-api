@@ -45,3 +45,17 @@ class DuplicateEntryError(TaskManagerException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = 'This entry already exists.'
     default_code = 'duplicate_entry'
+
+
+def custom_exception_handler(exc, context):
+    """Handler compatible que mantiene error_code estable para clientes."""
+    from rest_framework.views import exception_handler as drf_handler
+    response = drf_handler(exc, context)
+    if response is not None and isinstance(exc, TaskManagerException):
+        # Estandariza {detail, code} sin romper formato DRF.
+        if isinstance(response.data, dict) and 'detail' in response.data:
+            response.data = {
+                'detail': response.data['detail'],
+                'code': getattr(exc, 'default_code', 'error'),
+            }
+    return response

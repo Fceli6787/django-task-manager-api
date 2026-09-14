@@ -3,6 +3,8 @@ Task models with categories, tags, comments, and collaboration features.
 """
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from core.models import SoftDeleteModel, TimeStampedModel
 
@@ -26,7 +28,9 @@ class Category(TimeStampedModel):
         verbose_name = _('category')
         verbose_name_plural = _('categories')
         ordering = ['name']
-        unique_together = ['name', 'owner']
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'owner'], name='unique_category_owner')
+        ]
 
     def __str__(self):
         return self.name
@@ -48,7 +52,9 @@ class Tag(TimeStampedModel):
         verbose_name = _('tag')
         verbose_name_plural = _('tags')
         ordering = ['name']
-        unique_together = ['name', 'owner']
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'owner'], name='unique_tag_owner')
+        ]
 
     def __str__(self):
         return self.name
@@ -95,7 +101,10 @@ class Task(SoftDeleteModel):
     completed_at = models.DateTimeField(null=True, blank=True)
     
     # Progress
-    progress = models.PositiveIntegerField(default=0)  # 0-100
+    progress = models.PositiveIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )  # 0-100
     estimated_hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     actual_hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     
@@ -129,13 +138,16 @@ class Task(SoftDeleteModel):
     )
     
     # Recurrence
-    is_recurring = models.BooleanField(default=False)
+    is_recurring = models.BooleanField(default=False, db_index=True)
     recurrence_pattern = models.CharField(
         max_length=20,
         choices=RECURRENCE_CHOICES,
         default='none'
     )
     recurrence_end_date = models.DateTimeField(null=True, blank=True)
+    # FIX: idempotencia recurrentes + overdue (evita duplicados si Beat corre 2x).
+    last_recurrence_at = models.DateTimeField(null=True, blank=True)
+    overdue_notified_at = models.DateTimeField(null=True, blank=True)
     
     # Attachments count (actual files stored in TaskAttachment)
     attachments_count = models.PositiveIntegerField(default=0)
@@ -149,10 +161,32 @@ class Task(SoftDeleteModel):
             models.Index(fields=['priority']),
             models.Index(fields=['due_date']),
             models.Index(fields=['owner']),
+            # FIX: toda query filtra is_deleted; compuestos para dashboard/overdue.
+            models.Index(fields=['is_deleted', 'status', 'due_date']),
+            models.Index(fields=['owner', 'status']),
+            models.Index(fields=['is_recurring', 'status']),
         ]
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        # FIX: evita parent circular / auto-referencia -> recursión infinita.
+        if self.parent_id:
+            if self.parent_id == getattr(self, 'id', None):
+                raise ValidationError({'parent': 'A task cannot be its own parent.'})
+            # Camina ancestros (máx 20 niveles para no escanear infinito).
+            ancestor = self.parent
+            for _ in range(20):
+                if ancestor is None:
+                    break
+                if ancestor.id == getattr(self, 'id', None):
+                    raise ValidationError({'parent': 'Circular parent detected.'})
+                ancestor = ancestor.parent
+        if self.start_date and self.due_date and self.due_date < self.start_date:
+            raise ValidationError({'due_date': 'due_date must be >= start_date.'})
+        if self.due_date and self.recurrence_end_date and self.recurrence_end_date < self.due_date:
+            raise ValidationError({'recurrence_end_date': 'Must be >= due_date.'})
 
     @property
     def is_overdue(self):
@@ -170,12 +204,14 @@ class Task(SoftDeleteModel):
         return self.subtasks.filter(status='completed').count()
 
     def complete(self):
-        """Mark task as completed."""
+        """Mark task as completed (idempotente, atómico)."""
         from django.utils import timezone
+        if self.status == 'completed':
+            return
         self.status = 'completed'
         self.completed_at = timezone.now()
         self.progress = 100
-        self.save()
+        self.save(update_fields=['status', 'completed_at', 'progress', 'updated_at'])
 
 
 class TaskAttachment(TimeStampedModel):
@@ -236,19 +272,24 @@ class Comment(TimeStampedModel):
         return f"Comment by {self.author.email} on {self.task.title}"
 
     def save(self, *args, **kwargs):
-        """Extract and save mentions on save."""
+        """Extract and save mentions on save. FIX: matching real por email/handle."""
         super().save(*args, **kwargs)
         from core.utils import extract_mentions
         from apps.users.models import User
-        
-        mentioned_usernames = extract_mentions(self.content)
-        if mentioned_usernames:
-            mentioned_users = User.objects.filter(
-                email__in=[f"{username}@" for username in mentioned_usernames]
-            ) | User.objects.filter(
-                first_name__in=mentioned_usernames
-            )
-            self.mentions.set(mentioned_users)
+        from django.db.models import Q
+
+        mentioned = extract_mentions(self.content)
+        if not mentioned:
+            if self.pk and self.mentions.exists():
+                self.mentions.clear()
+            return
+        q = Q()
+        for username in mentioned:
+            # username puede ser handle, first_name o prefijo de email.
+            q |= Q(email__iexact=username)
+            q |= Q(email__istartswith=f"{username}@")
+            q |= Q(first_name__iexact=username)
+        self.mentions.set(User.objects.filter(q).distinct())
 
 
 class TaskHistory(TimeStampedModel):

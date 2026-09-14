@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Organización · Task Manager{% endblock %}
+{% block content %}
+
+<header class="page-header">
+  <p class="eyebrow">Organización</p>
+  <h1 class="page-title">Categorías y tags</h1>
+  <p class="page-subtitle">Agrupa tus tareas por contexto o tema para encontrarlas más rápido.</p>
+</header>
+
+<section class="grid grid-2">
+
+  {# ---------- Categorías ---------- #}
+  <div class="card">
+    <h2 class="card__title">Categorías</h2>
+    <p class="text-sm text-muted" style="margin-bottom: var(--s-4);">
+      Una categoría por tarea. Útil para agrupar proyectos o áreas.
+    </p>
+
+    <form method="post" action="/categories/new/" class="inline-add" style="margin-bottom: var(--s-4);">
+      {% csrf_token %}
+      <label for="cat-name" class="sr-only">Nombre de categoría</label>
+      <input id="cat-name" name="name" required placeholder="Nombre" class="input" maxlength="100">
+
+      <label for="cat-color" class="sr-only">Color de la categoría</label>
+      <input id="cat-color" type="color" name="color" value="#C2410C" class="color-picker" aria-label="Color de la categoría">
+
+      <button type="submit" class="btn btn--primary" aria-label="Crear categoría">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+    </form>
+
+    <ul class="item-list">
+      {% for c in categories %}
+        <li class="item">
+          <span class="item__swatch" style="background: {{ c.color }};" aria-hidden="true"></span>
+          <span class="item__name">{{ c.name }}</span>
+          <span class="item__count" title="{{ c.tasks.count }} tareas">{{ c.tasks.count }}</span>
+          <form method="post" action="/categories/{{ c.id }}/delete/" class="item__action"
+                onsubmit="return confirm('¿Eliminar la categoría «{{ c.name|escapejs }}»? Las tareas asociadas no se borrarán.')">
+            {% csrf_token %}
+            <button type="submit" class="icon-btn icon-btn--danger" aria-label="Eliminar categoría {{ c.name }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              </svg>
+            </button>
+          </form>
+        </li>
+      {% empty %}
+        <li class="empty-inline">Aún no hay categorías. Crea la primera arriba.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {# ---------- Tags ---------- #}
+  <div class="card">
+    <h2 class="card__title">Tags</h2>
+    <p class="text-sm text-muted" style="margin-bottom: var(--s-4);">
+      Varias por tarea. Etiquetas libres para cruzar información.
+    </p>
+
+    <form method="post" action="/tags/new/" class="inline-add" style="margin-bottom: var(--s-4);">
+      {% csrf_token %}
+      <label for="tag-name" class="sr-only">Nombre del tag</label>
+      <input id="tag-name" name="name" required placeholder="tag" class="input" maxlength="50">
+
+      <button type="submit" class="btn btn--primary" aria-label="Crear tag">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
+    </form>
+
+    <ul class="item-list">
+      {% for t in tags %}
+        <li class="item">
+          <span class="chip chip--sm">#{{ t.name }}</span>
+          <span class="item__count" title="{{ t.tasks.count }} tareas">{{ t.tasks.count }}</span>
+          <form method="post" action="/tags/{{ t.id }}/delete/" class="item__action"
+                onsubmit="return confirm('¿Eliminar el tag «{{ t.name|escapejs }}»?')">
+            {% csrf_token %}
+            <button type="submit" class="icon-btn icon-btn--danger" aria-label="Eliminar tag {{ t.name }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              </svg>
+            </button>
+          </form>
+        </li>
+      {% empty %}
+        <li class="empty-inline">Aún no hay tags. Crea el primero arriba.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+</section>
+
+{% endblock %}

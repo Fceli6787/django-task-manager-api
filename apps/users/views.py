@@ -70,9 +70,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return response
 
     def get_client_ip(self, request):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[0]
+        # FIX: no confiar en XFF salvo proxy confiable. Nginx debe fijar X-Real-IP.
+        # Si necesitas XFF, valida lista de proxies en settings.
         return request.META.get('REMOTE_ADDR')
 
 
@@ -157,12 +156,20 @@ class UserViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['post'])
     def change_password(self, request):
-        """Change current user password."""
+        """Change current user password e invalida sesiones."""
         serializer = PasswordChangeSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         
         request.user.set_password(serializer.validated_data['new_password'])
-        request.user.save()
+        request.user.save(update_fields=['password'])
+        # FIX: blacklist refresh tokens para cerrar sesiones robadas.
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            for token in OutstandingToken.objects.filter(user=request.user):
+                BlacklistedToken.objects.get_or_create(token=token)
+        except Exception:
+            pass
         
         return Response({'message': 'Password changed successfully'})
 
@@ -212,8 +219,15 @@ class TeamMemberViewSet(viewsets.ReadOnlyModelViewSet):
         
         try:
             user = User.objects.get(pk=pk)
+            # FIX: no auto-asignarse, no robar admins, no reasignar sin admin.
+            if user.id == request.user.id:
+                return Response({'error': 'Cannot assign yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+            if user.role == 'admin' and request.user.role != 'admin':
+                return Response({'error': 'Cannot assign admins.'}, status=status.HTTP_403_FORBIDDEN)
+            if user.manager_id and user.manager_id != request.user.id and request.user.role != 'admin':
+                return Response({'error': 'User already in another team.'}, status=status.HTTP_400_BAD_REQUEST)
             user.manager = request.user
-            user.save()
+            user.save(update_fields=['manager'])
             return Response({'message': f'User {user.email} assigned to your team'})
         except User.DoesNotExist:
             return Response(

@@ -1,0 +1,38 @@
+{% extends "auth_base.html" %}
+{% block title %}Entrar · Task Manager{% endblock %}
+{% block content %}
+
+<div class="auth-card">
+  <header class="auth-card__head">
+    <h1 class="auth-card__title">Bienvenido de vuelta</h1>
+    <p class="auth-card__sub">Entra para continuar con tu trabajo.</p>
+  </header>
+
+  <form method="post" class="auth-form" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for err in form.non_field_errors %}<p>{{ err }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    {% include "web/_field.html" with field=form.username label="Correo electrónico" %}
+    {% include "web/_field.html" with field=form.password label="Contraseña" %}
+
+    <button type="submit" class="btn btn--primary">
+      Entrar
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M5 12h14M13 5l7 7-7 7"/>
+      </svg>
+    </button>
+
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  </form>
+
+  <p class="auth-foot">
+    ¿Sin cuenta? <a href="/register/" class="link">Crear una</a>
+  </p>
+</div>
+
+{% endblock %}

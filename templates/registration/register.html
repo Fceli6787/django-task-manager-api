@@ -1,0 +1,45 @@
+{% extends "auth_base.html" %}
+{% block title %}Crear cuenta · Task Manager{% endblock %}
+{% block content %}
+
+<div class="auth-card">
+  <header class="auth-card__head">
+    <h1 class="auth-card__title">Crear cuenta</h1>
+    <p class="auth-card__sub">Empieza a organizar tus tareas en menos de un minuto.</p>
+  </header>
+
+  <form method="post" class="auth-form" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for err in form.non_field_errors %}<p>{{ err }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="form-grid">
+      {% include "web/_field.html" with field=form.first_name %}
+      {% include "web/_field.html" with field=form.last_name %}
+    </div>
+
+    {% include "web/_field.html" with field=form.email label="Correo electrónico" %}
+
+    <div class="form-grid">
+      {% include "web/_field.html" with field=form.password label="Contraseña" %}
+      {% include "web/_field.html" with field=form.password_confirm label="Confirmar contraseña" %}
+    </div>
+
+    <button type="submit" class="btn btn--primary">
+      Crear cuenta
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M5 12h14M13 5l7 7-7 7"/>
+      </svg>
+    </button>
+  </form>
+
+  <p class="auth-foot">
+    ¿Ya tienes cuenta? <a href="/login/" class="link">Entrar</a>
+  </p>
+</div>
+
+{% endblock %}
